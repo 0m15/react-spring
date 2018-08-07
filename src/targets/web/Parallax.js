@@ -34,6 +34,9 @@ export class ParallaxLayer extends React.PureComponent {
     if (parent) {
       parent.layers = parent.layers.concat(this)
       parent.update()
+      // moved from this.initialize()
+      // wait for component to be completely mounted to get layer height
+      this.animatedSpace = new AnimatedValue(this.div.clientHeight)
     }
   }
 
@@ -55,13 +58,17 @@ export class ParallaxLayer extends React.PureComponent {
     else this.animatedTranslate.setValue(to)
   }
 
-  setHeight(height, immediate = false) {
-    const { config, impl } = this.parent.props
-    const to = parseFloat(height * this.props.factor)
-    if (!immediate)
-      controller(this.animatedSpace, { to, ...config }, impl).start()
-    else this.animatedSpace.setValue(to)
-  }
+  /*
+    not used anymore
+
+    setHeight(height, immediate = false) {
+      const { config, impl } = this.parent.props
+      const to = parseFloat(height * this.props.factor)
+      if (!immediate)
+        controller(this.animatedSpace, { to, ...config }, impl).start()
+      else this.animatedSpace.setValue(to)
+    }
+  */
 
   initialize() {
     const props = this.props
@@ -70,7 +77,6 @@ export class ParallaxLayer extends React.PureComponent {
     const offset = parent.space * props.offset + targetScroll * props.speed
     const to = parseFloat(-(parent.current * props.speed) + offset)
     this.animatedTranslate = new AnimatedValue(to)
-    this.animatedSpace = new AnimatedValue(parent.space * props.factor)
   }
 
   renderLayer() {
@@ -92,6 +98,7 @@ export class ParallaxLayer extends React.PureComponent {
     })
     return (
       <AnimatedDiv
+        ref={el => this.div = el}
         {...props}
         className={className}
         style={{
@@ -99,8 +106,10 @@ export class ParallaxLayer extends React.PureComponent {
           backgroundSize: 'auto',
           backgroundRepeat: 'no-repeat',
           willChange: 'transform',
-          [horizontal ? 'height' : 'width']: '100%',
-          [horizontal ? 'width' : 'height']: this.animatedSpace,
+          // [horizontal ? 'height' : 'width']: '100%',
+          width: '100%',
+          height: 'auto',
+          // [horizontal ? 'width' : 'height']: this.animatedSpace,
           WebkitTransform: translate3d,
           MsTransform: translate3d,
           transform: translate3d,
@@ -126,7 +135,7 @@ export class ParallaxLayer extends React.PureComponent {
   }
 }
 
-export default class Parallax extends React.PureComponent {
+export class Parallax extends React.PureComponent {
   // TODO keep until major release
   static Layer = ParallaxLayer
 
@@ -172,14 +181,13 @@ export default class Parallax extends React.PureComponent {
     const { scrolling, horizontal } = this.props
     const scrollType = getScrollType(horizontal)
     if (!this.container) return
-    this.space = this.container[horizontal ? 'clientWidth' : 'clientHeight']
     if (scrolling) this.current = this.container[scrollType]
     else this.container[scrollType] = this.current = this.offset * this.space
     if (this.content)
-      this.content.style[horizontal ? 'width' : 'height'] = `${this.space *
-        this.props.pages}px`
+      // this.content.style[horizontal ? 'width' : 'height'] = `${this.space *
+      //   this.props.pages}px`
+      this.content.style[horizontal ? 'width' : 'height'] = `${this.space}px`
     this.layers.forEach(layer => {
-      layer.setHeight(this.space, true)
       layer.setPosition(this.space, this.current, true)
     })
   }
@@ -209,13 +217,16 @@ export default class Parallax extends React.PureComponent {
   }
 
   componentDidMount() {
-    window.addEventListener('resize', this.updateRaf, false)
+    // we're using scroll width/height so we don't need a window.onresize listener anymore,
+    // because scrollHeight gets dynamically updated
+    const { horizontal } = this.props
     this.update()
     this.setState({ ready: true })
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('resize', this.updateRaf, false)
+    this.space = this.container[
+      horizontal
+        ? 'scrollWidth'
+        : 'scrollHeight'
+    ]
   }
 
   componentDidUpdate() {
@@ -262,7 +273,6 @@ export default class Parallax extends React.PureComponent {
               WebkitTransform: START_TRANSLATE,
               MsTransform: START_TRANSLATE,
               transform: START_TRANSLATE_3D,
-              overflow: 'hidden',
               [horizontal ? 'width' : 'height']: this.space * pages,
               ...innerStyle,
             }}>
