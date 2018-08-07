@@ -135,7 +135,7 @@ export class ParallaxLayer extends React.PureComponent {
   }
 }
 
-export class Parallax extends React.PureComponent {
+export default class Parallax extends React.PureComponent {
   // TODO keep until major release
   static Layer = ParallaxLayer
 
